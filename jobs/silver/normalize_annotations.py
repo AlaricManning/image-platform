@@ -2,10 +2,10 @@
 manifest into tidy parquet tables in silver, partitioned by split (train2017,
 val2017, ...):
 
-  tables/coco_images/<partition>/split=<split>/part-00000.parquet
-  tables/coco_categories/<partition>/split=<split>/part-00000.parquet
-  tables/coco_annotations/<partition>/split=<split>/part-00000.parquet   (instances)
-  tables/coco_captions/<partition>/split=<split>/part-00000.parquet     (captions)
+  staging/coco_images/<partition>/split=<split>/part-00000.parquet
+  staging/coco_categories/<partition>/split=<split>/part-00000.parquet
+  staging/coco_annotations/<partition>/split=<split>/part-00000.parquet   (instances)
+  staging/coco_captions/<partition>/split=<split>/part-00000.parquet     (captions)
 
 person_keypoints files are skipped for now (keypoint arrays need their own
 modeling; revisit when a product needs them).
@@ -47,6 +47,13 @@ def main() -> int:
         f"partner={manifest['partner']}/dataset={manifest['dataset']}"
         f"/ingest_date={manifest['ingest_date']}/"
     )
+    # Iceberg partitions on real columns, so every row carries these fields
+    # (the staging path layout is just for humans now, not a schema contract).
+    base = {
+        "partner": manifest["partner"],
+        "dataset": manifest["dataset"],
+        "ingest_date": manifest["ingest_date"],
+    }
 
     for entry in manifest["files"]:
         key = entry["key"]
@@ -69,9 +76,10 @@ def main() -> int:
             write_table(
                 s3,
                 silver_bucket,
-                f"tables/coco_images/{split_part}",
+                f"staging/coco_images/{split_part}",
                 [
                     {
+                        **base,
                         "image_id": img["id"],
                         "file_name": img["file_name"],
                         "width": img["width"],
@@ -84,9 +92,10 @@ def main() -> int:
             write_table(
                 s3,
                 silver_bucket,
-                f"tables/coco_categories/{split_part}",
+                f"staging/coco_categories/{split_part}",
                 [
                     {
+                        **base,
                         "category_id": c["id"],
                         "name": c["name"],
                         "supercategory": c["supercategory"],
@@ -98,9 +107,10 @@ def main() -> int:
             write_table(
                 s3,
                 silver_bucket,
-                f"tables/coco_annotations/{split_part}",
+                f"staging/coco_annotations/{split_part}",
                 [
                     {
+                        **base,
                         "annotation_id": a["id"],
                         "image_id": a["image_id"],
                         "category_id": a["category_id"],
@@ -119,9 +129,10 @@ def main() -> int:
             write_table(
                 s3,
                 silver_bucket,
-                f"tables/coco_captions/{split_part}",
+                f"staging/coco_captions/{split_part}",
                 [
                     {
+                        **base,
                         "caption_id": a["id"],
                         "image_id": a["image_id"],
                         "caption": a["caption"],

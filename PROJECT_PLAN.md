@@ -100,8 +100,21 @@ bucket — which conveniently gives us a realistic "partner drops an archive" in
   (image URI + label summary + thumbnail URI), maybe a small sampled dataset product.
 - Athena smoke queries as the "end user" proof.
 
-### Phase 5+ — The bigger picture (backlog, not now)
+### Phase 5 — Iceberg lakehouse on EMR Serverless (in progress)
+- Pivot from plain-parquet + partition projection to Apache Iceberg tables in the
+  Glue Data Catalog (metastore only — no Glue ETL), written by PySpark on EMR
+  Serverless. Partition values become real columns; the S3 path contract and its
+  silent-empty failure mode go away.
+- Batch extractors now write a silver `staging/` zone; `silver_build` (Spark)
+  MERGEs/overwrite-partitions staging into Iceberg silver; `gold_build` (Spark)
+  rebuilds gold from silver. Lambda keeps handling per-object events; Spark
+  sweeps staging in batches.
+- Blocked once on the account's EMR Serverless vCPU quota (default 0; increase
+  requested 2026-08-16).
+
+### Phase 6+ — The bigger picture (backlog, not now)
 - Second partner/dataset to prove the multi-tenant landing pattern (e.g., Open Images subset).
+- Iceberg maintenance automation (snapshot expiry, compaction) + orchestration of the Spark jobs (Step Functions or schedules).
 - Clips/video: ffmpeg-based Batch jobs (frame extraction, scene detection) or MediaConvert.
 - Step Functions orchestration + retries/DLQs; data-quality checks (Great Expectations or hand-rolled).
 - Consumption APIs (API Gateway + Lambda over gold), dashboards, cross-account partner

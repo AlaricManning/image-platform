@@ -1,8 +1,9 @@
 """image-profile Batch job: for every image listed in a bronze manifest,
 extract metadata (dimensions, format, EXIF basics, sha256) and generate a
-thumbnail. Outputs to silver:
+thumbnail. Writes to the silver staging zone (the EMR Spark job merges
+staging into the Iceberg tables):
 
-  tables/image_metadata/partner=/dataset=/ingest_date=/part-00000.parquet
+  staging/image_metadata/partner=/dataset=/ingest_date=/part-00000.parquet
   thumbnails/partner=/dataset=/ingest_date=/<file>.jpg
 """
 
@@ -133,7 +134,7 @@ def main() -> int:
     table = pa.Table.from_pylist(rows, schema=SCHEMA)
     with tempfile.NamedTemporaryFile(suffix=".parquet") as tmp:
         pq.write_table(table, tmp.name)
-        out_key = f"tables/image_metadata/{partition}part-00000.parquet"
+        out_key = f"staging/image_metadata/{partition}part-00000.parquet"
         s3.upload_file(tmp.name, silver_bucket, out_key)
 
     print(f"done: {len(rows)} rows ({errors} errors) -> s3://{silver_bucket}/{out_key}")
