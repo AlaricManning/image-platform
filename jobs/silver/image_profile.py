@@ -25,6 +25,29 @@ IMAGE_SUFFIXES = (".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp")
 
 EXIF_MAKE, EXIF_MODEL, EXIF_ORIENTATION = 271, 272, 274
 
+# Explicit schema so all-null columns (e.g. EXIF fields on COCO images) don't
+# get inferred as parquet null type, which Athena can't read.
+SCHEMA = pa.schema(
+    [
+        ("partner", pa.string()),
+        ("dataset", pa.string()),
+        ("ingest_date", pa.string()),
+        ("bronze_key", pa.string()),
+        ("file_name", pa.string()),
+        ("size_bytes", pa.int64()),
+        ("sha256", pa.string()),
+        ("width", pa.int64()),
+        ("height", pa.int64()),
+        ("format", pa.string()),
+        ("mode", pa.string()),
+        ("exif_make", pa.string()),
+        ("exif_model", pa.string()),
+        ("exif_orientation", pa.int64()),
+        ("thumbnail_key", pa.string()),
+        ("error", pa.string()),
+    ]
+)
+
 
 def env(name: str) -> str:
     value = os.environ.get(name)
@@ -107,7 +130,7 @@ def main() -> int:
                 print(f"  profiled {i}/{len(image_keys)}")
 
     errors = sum(1 for r in rows if r["error"])
-    table = pa.Table.from_pylist(rows)
+    table = pa.Table.from_pylist(rows, schema=SCHEMA)
     with tempfile.NamedTemporaryFile(suffix=".parquet") as tmp:
         pq.write_table(table, tmp.name)
         out_key = f"tables/image_metadata/{partition}part-00000.parquet"
