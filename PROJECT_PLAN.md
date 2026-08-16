@@ -66,20 +66,20 @@ bucket — which conveniently gives us a realistic "partner drops an archive" in
 
 ## Phases
 
-### Phase 0 — Scaffolding
+### Phase 0 — Scaffolding ✅ (2026-08-16)
 - Repo layout: `infra/` (terraform: `bootstrap/`, `modules/`, `envs/dev/`), `src/image_platform/`
   (Python package), `jobs/` (Batch job containers), `lambdas/`, `scripts/`, `tests/`.
 - Terraform bootstrap: state bucket + lockfile-based locking; dev env skeleton; tagging standard.
 - Python project: pyproject, lint/format (ruff), pytest wiring.
 
-### Phase 1 — Buckets + simulated partner ingestion
+### Phase 1 — Buckets + simulated partner ingestion ✅ (2026-08-16)
 - Terraform: landing bucket for `partner=coco`, bronze/silver/gold buckets, lifecycle
   policies, encryption, public-access-block everywhere.
 - `scripts/seed_coco.py`: download COCO val2017 + annotations, upload to the landing
   bucket as-is (this is us role-playing the third party).
 - Manual "unpack to bronze" run of the Phase 2 logic before it's automated, to validate conventions.
 
-### Phase 2 — Event-driven bronze ingestion
+### Phase 2 — Event-driven bronze ingestion ✅ (2026-08-16)
 - S3 EventBridge notifications on landing buckets → EventBridge rule → ingestion Lambda.
 - Lambda: validate the object (expected partner/type), write a record to a DynamoDB
   ingestion ledger, and either copy small objects straight to bronze or submit an AWS
@@ -87,7 +87,7 @@ bucket — which conveniently gives us a realistic "partner drops an archive" in
 - Batch job #1 (`unpack-archive`): stream-unzip landing archives into bronze under the
   standard key scheme; write the batch manifest.
 
-### Phase 3 — Bronze → Silver batch processing
+### Phase 3 — Bronze → Silver batch processing ✅ (2026-08-16)
 - Batch job #2 (`image-profile`): for each bronze image — dimensions, format, EXIF,
   checksum, generate thumbnail → thumbnails to silver, metadata rows to Parquet in silver.
 - Batch job #3 (`normalize-annotations`): COCO instance/caption JSON → tidy Parquet tables
