@@ -94,7 +94,7 @@ bucket — which conveniently gives us a realistic "partner drops an archive" in
   (images, annotations, categories) partitioned by dataset.
 - Triggered by bronze manifest completion events (EventBridge again), not per-object.
 
-### Phase 4 — Gold + query layer
+### Phase 4 — Gold + query layer ✅ (2026-08-16)
 - Glue Data Catalog databases for silver/gold; Athena workgroup.
 - First gold products: per-category image counts/stats table, an "ML-ready" manifest
   (image URI + label summary + thumbnail URI), maybe a small sampled dataset product.
