@@ -23,7 +23,18 @@ resource "aws_s3_object" "spark_scripts" {
   source_hash = filemd5("${path.module}/../../../jobs/spark/${each.value}")
 }
 
+# The account's EMR Serverless vCPU quota is 0 (increase denied 2026-08-21:
+# insufficient usage history; re-request after the next billing cycle). Until
+# granted, Spark runs in local mode on Batch/Fargate (see spark_runner below)
+# and this application stays disabled.
+variable "emr_enabled" {
+  type    = bool
+  default = false
+}
+
 resource "aws_emrserverless_application" "spark" {
+  count = var.emr_enabled ? 1 : 0
+
   name          = "${local.prefix}-dev-spark"
   release_label = "emr-7.2.0"
   type          = "SPARK"
@@ -53,7 +64,8 @@ resource "aws_iam_role" "emr_job" {
       Effect = "Allow"
       Action = "sts:AssumeRole"
       Principal = {
-        Service = "emr-serverless.amazonaws.com"
+        # ecs-tasks so the same role serves the local-mode Batch runner.
+        Service = ["emr-serverless.amazonaws.com", "ecs-tasks.amazonaws.com"]
       }
     }]
   })
@@ -110,8 +122,52 @@ resource "aws_iam_role_policy" "emr_job" {
   })
 }
 
+# --- Local-mode Spark runner (interim, until EMR quota) ---------------------
+
+resource "aws_ecr_repository" "spark_runner" {
+  name         = "imgp/spark-runner"
+  force_delete = true
+}
+
+resource "aws_batch_job_definition" "spark_runner" {
+  name                  = "${local.prefix}-dev-spark-runner"
+  type                  = "container"
+  platform_capabilities = ["FARGATE"]
+
+  container_properties = jsonencode({
+    image            = "${aws_ecr_repository.spark_runner.repository_url}:latest"
+    jobRoleArn       = aws_iam_role.emr_job.arn
+    executionRoleArn = aws_iam_role.batch_exec.arn
+
+    # Entrypoint is `spark-submit --master local[*]`; override command with
+    # ["<script>.py", "--arg", ...] per submit.
+    command = ["silver_build.py"]
+
+    resourceRequirements = [
+      { type = "VCPU", value = "4" },
+      { type = "MEMORY", value = "16384" },
+    ]
+
+    networkConfiguration = {
+      assignPublicIp = "ENABLED"
+    }
+
+    fargatePlatformConfiguration = {
+      platformVersion = "LATEST"
+    }
+
+    environment = [
+      { name = "AWS_REGION", value = "us-east-1" },
+    ]
+  })
+
+  timeout {
+    attempt_duration_seconds = 3600
+  }
+}
+
 output "emr_application_id" {
-  value = aws_emrserverless_application.spark.id
+  value = var.emr_enabled ? aws_emrserverless_application.spark[0].id : "disabled (vCPU quota pending)"
 }
 
 output "emr_job_role" {
